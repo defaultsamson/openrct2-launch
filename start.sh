@@ -2,6 +2,7 @@
 
 dir="./OpenRCT2"
 backup="./OpenRCT2Backup"
+recent="recent.txt"
 
 update() {
 	url=$1
@@ -44,6 +45,7 @@ update() {
 }
 
 startgame() {
+	autosave=0
 	savefile=""
 	if [ $# -eq 0 ]; then
 		savefile=$(ls -1 $HOME/.config/OpenRCT2/save/autosave/autosave*sv6 | tail -n 1)
@@ -52,6 +54,7 @@ startgame() {
 			echo "Example: ./start.sh ./NewSave.sv6"
 			exit 1
 		fi
+		autosave=1
 	else
 		savefile=$1
 	fi
@@ -61,9 +64,30 @@ startgame() {
 		exit 1
 	fi
 
+	if [ $autosave -eq 0 ]; then
+		if [ -f $recent ]; then
+			rm $recent
+		fi
+		echo "$savefile" > $recent
+	fi
+
 	echo "Starting game: $savefile"
-	./OpenRCT2/openrct2-cli $savefile --headless
+	./OpenRCT2/openrct2-cli "$savefile" --headless
 }
+
+if [ -f "$recent" ]; then
+	savegame=$(cat "$recent")
+	rm $recent
+	if [ -f "$savegame" ]; then
+		savefile=$(ls -1 $HOME/.config/OpenRCT2/save/autosave/autosave*sv6 | tail -n 1)
+                if [ $? -ne 0 ]; then
+                        echo "No autosave found for recent game"
+		else
+			echo "Moving $savefile to $savegame"
+			mv "$savefile" "$savegame"
+		fi
+	fi
+fi
 
 if [ $# -ge 1 ]; then
 	if [[ $1 = *"tar.gz" ]]; then
@@ -93,21 +117,22 @@ if [ $# -ge 1 ]; then
 		startgame
 	else
 		if [ $# -ge 2 ]; then
-                        if [[ $2 = *"tar.gz" ]]; then
-                                update $2
-                        fi
-                fi
+			if [[ $2 = *"tar.gz" ]]; then
+				update $2
+			fi
+		fi
 		startgame $1
 	fi
 else
 	# no parameters were passed, start by searching for new files
 	newsave=$(ls -1 | egrep "^.*\.sv6$" | tail -n 1)
 	if [ -f "$newsave" ]; then
-		mkdir oldsaves
-		mv $newsave "./oldsaves/"
-		echo "Moved Save: $newsave"
-		startgame "./oldsaves/$newsave"
+		#mkdir oldsaves
+		#mv $newsave "./oldsaves/"
+		#echo "Moved Save: $newsave"
+		startgame "$newsave"
 	else
 		startgame
 	fi
 fi
+
